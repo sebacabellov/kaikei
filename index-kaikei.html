@@ -1,0 +1,1766 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cuentas del Hogar — Libro Contable</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:ital,wght@0,400;0,600;0,700;1,500&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root{
+    --paper: #f4efdf;
+    --paper-dark: #ece4cc;
+    --ink: #1f2e28;
+    --forest: #1b3a2f;
+    --forest-light: #2f5b47;
+    --forest-lighter: #3d715a;
+    --gold: #a9822f;
+    --gold-light: #cfa94e;
+    --red-stamp: #9c3d2e;
+    --red-stamp-light: #c25a44;
+    --teal-stamp: #2f6e56;
+    --line: #d6c9a3;
+    --line-soft: #e3d8b8;
+    --shadow: rgba(27,58,47,0.18);
+  }
+
+  *{box-sizing:border-box;}
+
+  body{
+    margin:0;
+    font-family:'Inter', sans-serif;
+    color:var(--ink);
+    background:
+      repeating-linear-gradient(var(--paper) 0px, var(--paper) 27px, var(--line-soft) 28px),
+      var(--paper);
+    min-height:100vh;
+  }
+
+  /* ---------- LOGIN ---------- */
+  #loginScreen{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:
+      radial-gradient(circle at 20% 20%, rgba(255,255,255,0.05), transparent 40%),
+      linear-gradient(160deg, var(--forest) 0%, #142a22 100%);
+    padding:24px;
+  }
+
+  .ledger-cover{
+    width:100%;
+    max-width:420px;
+    background:var(--paper);
+    border-radius:6px;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04);
+    position:relative;
+    overflow:hidden;
+    padding:48px 40px 40px;
+  }
+  .ledger-cover::before{
+    content:"";
+    position:absolute;
+    left:0; top:0; bottom:0;
+    width:14px;
+    background:repeating-linear-gradient(180deg, var(--forest) 0 6px, var(--gold) 6px 8px);
+  }
+
+  .cover-eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    font-size:11px;
+    color:var(--gold);
+    margin:0 0 6px 8px;
+    font-weight:600;
+  }
+  .cover-title{
+    font-family:'Zilla Slab', serif;
+    font-size:32px;
+    font-weight:700;
+    margin:0 0 4px 8px;
+    color:var(--forest);
+  }
+  .cover-sub{
+    font-size:13px;
+    color:#6b6455;
+    margin:0 0 32px 8px;
+  }
+
+  .field{
+    margin-bottom:18px;
+    padding-left:8px;
+  }
+  .field label{
+    display:block;
+    font-size:12px;
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    color:var(--forest-light);
+    margin-bottom:6px;
+  }
+  .field input, .field select{
+    width:100%;
+    padding:11px 13px;
+    font-size:15px;
+    font-family:'IBM Plex Mono', monospace;
+    border:1px solid var(--line);
+    background:#fffdf7;
+    border-radius:4px;
+    color:var(--ink);
+    outline:none;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  .field input:focus, .field select:focus{
+    border-color:var(--forest-light);
+    box-shadow:0 0 0 3px rgba(47,91,71,0.15);
+  }
+
+  .btn{
+    border:none;
+    cursor:pointer;
+    font-family:'Inter', sans-serif;
+    font-weight:600;
+    border-radius:4px;
+    padding:12px 20px;
+    font-size:14px;
+    transition:transform .1s ease, box-shadow .15s ease, background .15s ease;
+  }
+  .btn:active{ transform:translateY(1px); }
+  .btn-primary{
+    background:var(--forest);
+    color:#f4efdf;
+    width:calc(100% - 8px);
+    margin-left:8px;
+    box-shadow:0 4px 14px rgba(27,58,47,0.35);
+  }
+  .btn-primary:hover{ background:var(--forest-light); }
+
+  .login-error{
+    margin:0 0 14px 8px;
+    font-size:13px;
+    color:var(--red-stamp);
+    font-weight:600;
+    display:none;
+  }
+
+  .cover-hint{
+    margin:22px 8px 0;
+    font-size:11.5px;
+    color:#8a8368;
+    font-family:'IBM Plex Mono', monospace;
+    border-top:1px dashed var(--line);
+    padding-top:14px;
+  }
+
+  /* ---------- APP SHELL ---------- */
+  #appScreen{ display:none; }
+
+  header.topbar{
+    background:var(--forest);
+    color:var(--paper);
+    padding:20px 32px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    box-shadow:0 4px 14px var(--shadow);
+    position:sticky; top:0; z-index:20;
+    flex-wrap:wrap;
+    gap:12px;
+  }
+  .brand{ display:flex; align-items:center; gap:14px; }
+  .brand-mark{
+    width:38px; height:38px;
+    border:2px solid var(--gold-light);
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Zilla Slab', serif;
+    font-weight:700;
+    color:var(--gold-light);
+    font-size:18px;
+    flex-shrink:0;
+  }
+  .brand-text h1{
+    font-family:'Zilla Slab', serif;
+    font-size:21px;
+    margin:0;
+    font-weight:700;
+    letter-spacing:.01em;
+  }
+  .brand-text span{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--gold-light);
+    letter-spacing:.1em;
+    text-transform:uppercase;
+  }
+  .top-actions{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .btn-ghost{
+    background:transparent;
+    color:var(--paper);
+    border:1px solid rgba(244,239,223,0.35);
+    padding:9px 16px;
+    font-size:13px;
+  }
+  .btn-ghost:hover{ background:rgba(244,239,223,0.1); border-color:var(--gold-light); }
+
+  .nav-group{
+    display:flex;
+    gap:2px;
+    background:rgba(0,0,0,0.18);
+    border-radius:5px;
+    padding:3px;
+    margin-right:6px;
+  }
+  .nav-btn{
+    background:transparent;
+    border:none;
+    color:rgba(244,239,223,0.75);
+    padding:8px 16px;
+    font-size:13px;
+    font-weight:600;
+    font-family:'Inter', sans-serif;
+    border-radius:4px;
+    cursor:pointer;
+    transition:background .15s ease, color .15s ease;
+  }
+  .nav-btn:hover{ color:var(--paper); }
+  .nav-btn.active{
+    background:var(--gold-light);
+    color:var(--forest);
+  }
+
+  main{
+    max-width:1180px;
+    margin:0 auto;
+    padding:32px 24px 80px;
+  }
+
+  /* summary cards */
+  .summary-row{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:18px;
+    margin-bottom:32px;
+  }
+  .stamp-card{
+    background:#fffdf7;
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:20px 22px;
+    position:relative;
+    overflow:hidden;
+  }
+  .stamp-card .label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.12em;
+    color:#8a8368;
+    margin-bottom:8px;
+  }
+  .stamp-card .value{
+    font-family:'Zilla Slab', serif;
+    font-size:30px;
+    font-weight:700;
+  }
+  .stamp-card.ingresos .value{ color:var(--teal-stamp); }
+  .stamp-card.gastos .value{ color:var(--red-stamp); }
+  .stamp-card.balance .value{ color:var(--forest); }
+  .stamp-card::after{
+    content:"";
+    position:absolute;
+    right:-30px; top:-30px;
+    width:100px; height:100px;
+    border-radius:50%;
+    opacity:.08;
+  }
+  .stamp-card.ingresos::after{ background:var(--teal-stamp); }
+  .stamp-card.gastos::after{ background:var(--red-stamp); }
+  .stamp-card.balance::after{ background:var(--forest); }
+
+  /* panels */
+  .panel{
+    background:#fffdf7;
+    border:1px solid var(--line);
+    border-radius:8px;
+    margin-bottom:28px;
+    box-shadow:0 2px 8px rgba(27,58,47,0.06);
+  }
+  .panel-header{
+    padding:16px 22px;
+    border-bottom:1px solid var(--line-soft);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  .panel-header h2{
+    font-family:'Zilla Slab', serif;
+    font-size:18px;
+    margin:0;
+    color:var(--forest);
+    font-weight:700;
+  }
+  .panel-header p.sub{
+    margin:2px 0 0;
+    font-size:12px;
+    color:#8a8368;
+  }
+  .panel-body{ padding:22px; }
+
+  /* form grid */
+  .form-grid{
+    display:grid;
+    grid-template-columns:repeat(6, 1fr);
+    gap:16px;
+    align-items:end;
+  }
+  .form-grid .field{ padding-left:0; margin-bottom:0; }
+  .form-grid .field.span2{ grid-column:span 2; }
+  .form-grid .field label{ color:#6b6455; }
+  .form-grid input, .form-grid select{
+    background:var(--paper);
+  }
+  .form-grid .btn-primary{ margin-left:0; width:100%; padding:11px 14px; }
+
+  @media (max-width:900px){
+    .form-grid{ grid-template-columns:repeat(2, 1fr); }
+    .form-grid .field.span2{ grid-column:span 2; }
+    .summary-row{ grid-template-columns:1fr; }
+    .cat-manage-cols{ grid-template-columns:1fr !important; }
+    .report-filters{ grid-template-columns:1fr !important; }
+    .report-cols{ grid-template-columns:1fr !important; }
+  }
+
+  /* filters */
+  .filters-row{
+    display:flex;
+    gap:14px;
+    flex-wrap:wrap;
+    align-items:center;
+  }
+  .filters-row .field{ padding-left:0; margin-bottom:0; min-width:150px; }
+  .filters-row select{ background:var(--paper); }
+  .filter-clear{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    color:var(--forest-light);
+    background:none;
+    border:none;
+    cursor:pointer;
+    text-decoration:underline;
+    padding:0;
+  }
+
+  /* table */
+  table{ width:100%; border-collapse:collapse; }
+  thead th{
+    text-align:left;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    color:#8a8368;
+    padding:10px 14px;
+    border-bottom:2px solid var(--line);
+  }
+  tbody td{
+    padding:13px 14px;
+    border-bottom:1px solid var(--line-soft);
+    font-size:14px;
+    vertical-align:middle;
+  }
+  tbody tr:hover{ background:rgba(217,201,163,0.18); }
+  .monto-cell{ font-family:'IBM Plex Mono', monospace; font-weight:600; text-align:right; }
+  .monto-cell.ingreso{ color:var(--teal-stamp); }
+  .monto-cell.gasto{ color:var(--red-stamp); }
+
+  .stamp{
+    display:inline-block;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    padding:4px 10px;
+    border-radius:3px;
+    border:1.5px solid currentColor;
+    transform:rotate(-2deg);
+  }
+  .stamp.pagado{ color:var(--teal-stamp); }
+  .stamp.pendiente{ color:var(--gold); }
+  .stamp.vencido{ color:var(--red-stamp); }
+
+  .cat-pill{
+    display:inline-block;
+    font-size:12px;
+    padding:3px 10px;
+    border-radius:12px;
+    background:var(--paper-dark);
+    color:var(--forest-light);
+    font-weight:600;
+  }
+
+  .row-actions{ display:flex; gap:8px; }
+  .icon-btn{
+    background:none;
+    border:1px solid var(--line);
+    border-radius:4px;
+    cursor:pointer;
+    width:30px; height:30px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:14px;
+    color:#6b6455;
+    flex-shrink:0;
+  }
+  .icon-btn:hover{ border-color:var(--forest-light); color:var(--forest-light); }
+  .icon-btn.danger:hover{ border-color:var(--red-stamp); color:var(--red-stamp); }
+
+  .empty-state{
+    padding:50px 20px;
+    text-align:center;
+    color:#8a8368;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:13px;
+  }
+
+  /* modal */
+  .modal-overlay{
+    display:none;
+    position:fixed; inset:0;
+    background:rgba(20,42,34,0.55);
+    align-items:center;
+    justify-content:center;
+    z-index:100;
+    padding:20px;
+  }
+  .modal-overlay.active{ display:flex; }
+  .modal{
+    background:var(--paper);
+    border-radius:8px;
+    width:100%;
+    max-width:400px;
+    padding:28px 28px 24px;
+    box-shadow:0 20px 50px rgba(0,0,0,0.35);
+    position:relative;
+    max-height:88vh;
+    overflow-y:auto;
+  }
+  .modal.wide{ max-width:600px; }
+  .modal h3{
+    font-family:'Zilla Slab', serif;
+    color:var(--forest);
+    margin:0 0 18px;
+    font-size:20px;
+  }
+  .modal-actions{ display:flex; gap:10px; margin-top:20px; }
+  .modal-actions .btn{ flex:1; }
+  .btn-secondary{
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--ink);
+  }
+  .btn-secondary:hover{ background:var(--paper-dark); }
+  .modal-msg{ font-size:13px; font-weight:600; margin-top:10px; display:none; }
+  .modal-msg.ok{ color:var(--teal-stamp); }
+  .modal-msg.err{ color:var(--red-stamp); }
+
+  .toast{
+    position:fixed;
+    bottom:24px; right:24px;
+    background:var(--forest);
+    color:var(--paper);
+    padding:13px 20px;
+    border-radius:6px;
+    font-size:13px;
+    font-weight:600;
+    box-shadow:0 8px 24px rgba(0,0,0,0.3);
+    transform:translateY(20px);
+    opacity:0;
+    pointer-events:none;
+    transition:all .25s ease;
+    z-index:200;
+    display:flex; align-items:center; gap:8px;
+  }
+  .toast.show{ transform:translateY(0); opacity:1; }
+  .toast::before{ content:"✓"; color:var(--gold-light); font-weight:700; }
+
+  /* ---------- Category management ---------- */
+  .cat-manage-cols{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:22px;
+  }
+  .cat-manage-col h4{
+    font-family:'Zilla Slab', serif;
+    color:var(--forest);
+    font-size:14px;
+    margin:0 0 10px;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+  }
+  .cat-manage-list{
+    list-style:none;
+    padding:0;
+    margin:0 0 12px;
+    max-height:200px;
+    overflow-y:auto;
+    border:1px solid var(--line-soft);
+    border-radius:4px;
+  }
+  .cat-manage-list li{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:7px 10px;
+    border-bottom:1px solid var(--line-soft);
+    font-size:12.5px;
+    gap:8px;
+  }
+  .cat-manage-list li:last-child{ border-bottom:none; }
+  .cat-manage-list li span{ word-break:break-word; }
+  .cat-manage-add{ display:flex; gap:8px; align-items:stretch; }
+  .cat-manage-add input{
+    flex:1;
+    padding:0 12px;
+    height:38px;
+    font-size:12.5px;
+    border:1px solid var(--line);
+    border-radius:4px;
+    background:var(--paper);
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .cat-manage-add button{
+    width:auto !important;
+    flex:none !important;
+    height:38px;
+    padding:0 16px !important;
+    font-size:12px;
+    white-space:nowrap;
+    flex-shrink:0;
+  }
+
+  /* ---------- Report ---------- */
+  .report-filters{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:16px;
+    margin-bottom:20px;
+  }
+  .report-filters .field{ padding-left:0; margin-bottom:0; }
+  .report-filters select, .report-filters input{ background:var(--paper); }
+
+  .checklist-link{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--forest-light);
+    background:none;
+    border:none;
+    cursor:pointer;
+    text-decoration:underline;
+    padding:0;
+  }
+
+  /* multi-select dropdown for report categories */
+  .ms-dropdown{ position:relative; }
+  .ms-dropdown-btn{
+    width:100%;
+    text-align:left;
+    padding:11px 13px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:13px;
+    border:1px solid var(--line);
+    background:var(--paper);
+    border-radius:4px;
+    cursor:pointer;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    color:var(--ink);
+  }
+  .ms-dropdown-btn:hover{ border-color:var(--forest-light); }
+  .ms-dropdown-btn.open{ border-color:var(--forest-light); box-shadow:0 0 0 3px rgba(47,91,71,0.15); }
+  .ms-arrow{ color:var(--forest-light); font-size:10px; margin-left:8px; transition:transform .15s ease; flex-shrink:0; }
+  .ms-dropdown-btn.open .ms-arrow{ transform:rotate(180deg); }
+
+  .ms-dropdown-panel{
+    display:none;
+    position:absolute;
+    top:calc(100% + 6px);
+    left:0; right:0;
+    background:#fffdf7;
+    border:1px solid var(--line);
+    border-radius:6px;
+    box-shadow:0 14px 32px rgba(27,58,47,0.2);
+    z-index:50;
+    padding:12px;
+  }
+  .ms-dropdown-panel.open{ display:block; }
+  .ms-panel-actions{ display:flex; gap:14px; margin-bottom:8px; padding:0 2px; }
+  .ms-panel-list{
+    display:flex;
+    flex-direction:column;
+    max-height:260px;
+    overflow-y:auto;
+  }
+  .ms-group + .ms-group{
+    border-top:1px solid var(--line-soft);
+    margin-top:6px;
+    padding-top:6px;
+  }
+  .ms-group-title{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:.1em;
+    color:#8a8368;
+    padding:4px 8px 6px;
+  }
+  .ms-panel-list label{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:13px;
+    padding:7px 8px;
+    border-radius:4px;
+    cursor:pointer;
+    line-height:1.3;
+  }
+  .ms-panel-list label:hover{ background:var(--paper-dark); }
+  .ms-panel-list input{
+    width:15px;
+    height:15px;
+    flex-shrink:0;
+    margin:0;
+    accent-color:var(--forest-light);
+    cursor:pointer;
+  }
+
+  .report-cols{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:26px;
+    margin-top:26px;
+  }
+  .report-col h4{
+    font-family:'Zilla Slab', serif;
+    font-size:15px;
+    margin:0 0 14px;
+    padding-bottom:8px;
+    border-bottom:1px solid var(--line-soft);
+  }
+  .report-col.ing h4{ color:var(--teal-stamp); }
+  .report-col.gas h4{ color:var(--red-stamp); }
+
+  .bar-row{ display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  .bar-label{ width:150px; flex-shrink:0; font-size:12.5px; color:var(--ink); }
+  .bar-track{ flex:1; background:var(--paper-dark); border-radius:4px; height:13px; overflow:hidden; }
+  .bar-fill{ height:100%; border-radius:4px; }
+  .bar-fill.ingreso{ background:var(--teal-stamp); }
+  .bar-fill.gasto{ background:var(--red-stamp); }
+  .bar-value{ width:100px; text-align:right; font-family:'IBM Plex Mono', monospace; font-size:12px; font-weight:600; flex-shrink:0; }
+
+  .report-summary-row{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:16px;
+  }
+  @media (max-width:900px){ .report-summary-row{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<!-- ===================== LOGIN ===================== -->
+<div id="loginScreen">
+  <div class="ledger-cover">
+    <p class="cover-eyebrow">Libro Contable · Privado</p>
+    <h1 class="cover-title">Cuentas del Hogar</h1>
+    <p class="cover-sub">Ingresa tus credenciales para abrir el libro.</p>
+
+    <p class="login-error" id="loginError">Usuario o clave incorrectos.</p>
+
+    <form id="loginForm" autocomplete="off">
+      <div class="field">
+        <label for="loginUser">Correo electrónico</label>
+        <input type="email" id="loginUser" placeholder="tu@correo.com" autocomplete="email">
+      </div>
+      <div class="field">
+        <label for="loginPass">Clave</label>
+        <input type="password" id="loginPass" placeholder="••••" autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn btn-primary" id="loginSubmitBtn">Entrar al libro</button>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== APP ===================== -->
+<div id="appScreen">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">$</div>
+      <div class="brand-text">
+        <h1>Cuentas del Hogar</h1>
+        <span>Libro contable familiar</span>
+      </div>
+    </div>
+    <div class="top-actions">
+      <div class="nav-group">
+        <button class="nav-btn active" id="navMovimientos" data-view="movimientos">Movimientos</button>
+        <button class="nav-btn" id="navReporte" data-view="reporte">Reporte</button>
+      </div>
+      <button class="btn btn-ghost" id="openCatManage">Gestionar categorías</button>
+      <button class="btn btn-ghost" id="openChangePass">Cambiar clave</button>
+      <button class="btn btn-ghost" id="logoutBtn">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main>
+  <div id="viewMovimientos">
+    <!-- summary -->
+    <section class="summary-row">
+      <div class="stamp-card ingresos">
+        <div class="label">Ingresos (filtro actual)</div>
+        <div class="value" id="totalIngresos">$0</div>
+      </div>
+      <div class="stamp-card gastos">
+        <div class="label">Gastos (filtro actual)</div>
+        <div class="value" id="totalGastos">$0</div>
+      </div>
+      <div class="stamp-card balance">
+        <div class="label">Balance</div>
+        <div class="value" id="totalBalance">$0</div>
+      </div>
+    </section>
+
+    <!-- add movement -->
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Registrar movimiento</h2>
+      </div>
+      <div class="panel-body">
+        <form id="movForm" class="form-grid">
+          <div class="field">
+            <label for="movTipo">Tipo</label>
+            <select id="movTipo" required>
+              <option value="Ingreso">Ingreso</option>
+              <option value="Gasto" selected>Gasto</option>
+            </select>
+          </div>
+          <div class="field span2">
+            <label for="movDesc">Descripción</label>
+            <input type="text" id="movDesc" placeholder="Ej: Cuenta de la luz" required>
+          </div>
+          <div class="field">
+            <label for="movMonto">Monto ($)</label>
+            <input type="number" id="movMonto" min="0" step="1" placeholder="0" required>
+          </div>
+          <div class="field">
+            <label for="movCategoria">Categoría</label>
+            <select id="movCategoria" required></select>
+          </div>
+          <div class="field">
+            <label for="movEstado">Estado</label>
+            <select id="movEstado" required>
+              <option value="Pagado">Pagado</option>
+              <option value="Pendiente">Pendiente</option>
+              <option value="Vencido">Vencido</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="movMes">Mes</label>
+            <select id="movMes" required></select>
+          </div>
+          <div class="field">
+            <label for="movAnio">Año</label>
+            <input type="number" id="movAnio" min="2000" max="2100" required>
+          </div>
+          <div class="field span2">
+            <label for="movFecha">Fecha</label>
+            <input type="date" id="movFecha" required>
+          </div>
+          <div class="field">
+            <button type="submit" class="btn btn-primary" id="submitMovBtn">Agregar</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- filters + table -->
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Movimientos</h2>
+        <span id="countLabel" style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#8a8368;"></span>
+      </div>
+      <div class="panel-body">
+        <div class="filters-row" style="margin-bottom:20px;">
+          <div class="field">
+            <label>Mes</label>
+            <select id="filterMes"><option value="">Todos</option></select>
+          </div>
+          <div class="field">
+            <label>Categoría</label>
+            <select id="filterCategoria"><option value="">Todas</option></select>
+          </div>
+          <div class="field">
+            <label>Estado</label>
+            <select id="filterEstado">
+              <option value="">Todos</option>
+              <option value="Pagado">Pagado</option>
+              <option value="Pendiente">Pendiente</option>
+              <option value="Vencido">Vencido</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Tipo</label>
+            <select id="filterTipo">
+              <option value="">Todos</option>
+              <option value="Ingreso">Ingreso</option>
+              <option value="Gasto">Gasto</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>&nbsp;</label>
+            <button class="filter-clear" id="clearFilters">Limpiar filtros</button>
+          </div>
+        </div>
+
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Descripción</th>
+                <th>Categoría</th>
+                <th>Mes</th>
+                <th>Estado</th>
+                <th style="text-align:right;">Monto</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="movTableBody"></tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="emptyState" style="display:none;">
+          Aún no hay movimientos registrados. Agrega el primero arriba ↑
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <div id="viewReporte" style="display:none;">
+    <!-- REPORTE -->
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <h2>Reporte</h2>
+          <p class="sub">Filtra por fecha y categorías para ver totales y desgloses.</p>
+        </div>
+        <span id="reportCount" style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#8a8368;"></span>
+      </div>
+      <div class="panel-body">
+        <div class="report-filters">
+          <div class="field">
+            <label for="reportDesde">Fecha desde</label>
+            <input type="date" id="reportDesde">
+          </div>
+          <div class="field">
+            <label for="reportHasta">Fecha hasta</label>
+            <input type="date" id="reportHasta">
+          </div>
+          <div class="field">
+            <label for="reportTipo">Tipo</label>
+            <select id="reportTipo">
+              <option value="">Ingresos y gastos</option>
+              <option value="Ingreso">Solo ingresos</option>
+              <option value="Gasto">Solo gastos</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field" style="padding-left:0; margin-bottom:22px;">
+          <label>Categorías</label>
+          <div class="ms-dropdown" id="catMsDropdown">
+            <button type="button" class="ms-dropdown-btn" id="catMsBtn">
+              <span id="catMsBtnLabel">Todas las categorías</span>
+              <span class="ms-arrow">▾</span>
+            </button>
+            <div class="ms-dropdown-panel" id="catMsPanel">
+              <div class="ms-panel-actions">
+                <button type="button" class="checklist-link" id="reportSelectAll">Seleccionar todas</button>
+                <button type="button" class="checklist-link" id="reportSelectNone">Quitar selección</button>
+              </div>
+              <div class="ms-panel-list" id="reportCatChecklist"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="report-summary-row">
+          <div class="stamp-card ingresos">
+            <div class="label">Total ingresos</div>
+            <div class="value" id="reportTotalIngresos">$0</div>
+          </div>
+          <div class="stamp-card gastos">
+            <div class="label">Total gastos</div>
+            <div class="value" id="reportTotalGastos">$0</div>
+          </div>
+          <div class="stamp-card balance">
+            <div class="label">Balance del período</div>
+            <div class="value" id="reportTotalBalance">$0</div>
+          </div>
+        </div>
+
+        <div class="report-cols">
+          <div class="report-col ing">
+            <h4>Ingresos por categoría</h4>
+            <div id="reportIngresoBars"></div>
+          </div>
+          <div class="report-col gas">
+            <h4>Gastos por categoría</h4>
+            <div id="reportGastoBars"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+  </main>
+</div>
+
+<!-- change password modal -->
+<div class="modal-overlay" id="changePassOverlay">
+  <div class="modal">
+    <h3>Cambiar clave</h3>
+    <form id="changePassForm">
+      <div class="field">
+        <label for="oldPass">Clave actual</label>
+        <input type="password" id="oldPass" required>
+      </div>
+      <div class="field">
+        <label for="newPass">Clave nueva</label>
+        <input type="password" id="newPass" minlength="4" required>
+      </div>
+      <div class="field">
+        <label for="newPass2">Repetir clave nueva</label>
+        <input type="password" id="newPass2" minlength="4" required>
+      </div>
+      <p class="modal-msg" id="changePassMsg"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="cancelChangePass">Cancelar</button>
+        <button type="submit" class="btn btn-primary" style="margin-left:0;">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- edit modal -->
+<div class="modal-overlay" id="editOverlay">
+  <div class="modal">
+    <h3>Editar movimiento</h3>
+    <form id="editForm">
+      <input type="hidden" id="editId">
+      <div class="field">
+        <label for="editTipo">Tipo</label>
+        <select id="editTipo" required>
+          <option value="Ingreso">Ingreso</option>
+          <option value="Gasto">Gasto</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="editDesc">Descripción</label>
+        <input type="text" id="editDesc" required>
+      </div>
+      <div class="field">
+        <label for="editMonto">Monto ($)</label>
+        <input type="number" id="editMonto" min="0" step="1" required>
+      </div>
+      <div class="field">
+        <label for="editCategoria">Categoría</label>
+        <select id="editCategoria" required></select>
+      </div>
+      <div class="field">
+        <label for="editEstado">Estado</label>
+        <select id="editEstado" required>
+          <option value="Pagado">Pagado</option>
+          <option value="Pendiente">Pendiente</option>
+          <option value="Vencido">Vencido</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="editMes">Mes</label>
+        <select id="editMes" required></select>
+      </div>
+      <div class="field">
+        <label for="editAnio">Año</label>
+        <input type="number" id="editAnio" min="2000" max="2100" required>
+      </div>
+      <div class="field">
+        <label for="editFecha">Fecha</label>
+        <input type="date" id="editFecha" required>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="cancelEdit">Cancelar</button>
+        <button type="submit" class="btn btn-primary" style="margin-left:0;">Guardar cambios</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- manage categories modal -->
+<div class="modal-overlay" id="catManageOverlay">
+  <div class="modal wide">
+    <h3>Gestionar categorías</h3>
+    <p class="modal-msg err" id="catManageMsg" style="display:block; color:#8a8368; font-weight:500;">Debe quedar al menos una categoría por tipo.</p>
+    <div class="cat-manage-cols">
+      <div class="cat-manage-col">
+        <h4>Categorías de ingreso</h4>
+        <ul class="cat-manage-list" id="catListIngreso"></ul>
+        <div class="cat-manage-add">
+          <input type="text" id="catAddIngreso" placeholder="Nueva categoría de ingreso">
+          <button type="button" class="btn btn-primary" style="margin-left:0;" id="catAddIngresoBtn">Agregar</button>
+        </div>
+      </div>
+      <div class="cat-manage-col">
+        <h4>Categorías de gasto</h4>
+        <ul class="cat-manage-list" id="catListGasto"></ul>
+        <div class="cat-manage-add">
+          <input type="text" id="catAddGasto" placeholder="Nueva categoría de gasto">
+          <button type="button" class="btn btn-primary" style="margin-left:0;" id="catAddGastoBtn">Agregar</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-secondary" id="closeCatManage" style="flex:none; margin-left:auto; padding:10px 22px;">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- constants ----------
+  var SUPABASE_URL = "https://ctjsicbamaatccrxztcy.supabase.co";
+  var SUPABASE_KEY = "sb_publishable_xOj7wSq0FC0WssSn4SUdCA_g6tJDXHL";
+  var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  var MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
+  // ---------- helpers ----------
+  function $(id){ return document.getElementById(id); }
+  function fmt(n){
+    n = Number(n) || 0;
+    return "$" + n.toLocaleString("es-CL");
+  }
+  function todayISO(){
+    var d = new Date();
+    return d.toISOString().slice(0,10);
+  }
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+  function escapeHtml(s){
+    var div = document.createElement("div");
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  // ---------- movimientos (caché local sincronizada con Supabase) ----------
+  var movsCache = [];
+
+  async function loadMovs(){
+    var res = await sb.from("movimientos").select("*").order("fecha", { ascending: false });
+    if(res.error){
+      console.error(res.error);
+      showToast("Error al cargar movimientos");
+      movsCache = [];
+      return;
+    }
+    movsCache = (res.data || []).map(function(m){
+      return {
+        id: m.id,
+        tipo: m.tipo,
+        descripcion: m.descripcion,
+        monto: Number(m.monto),
+        categoria: m.categoria,
+        estado: m.estado,
+        mes: m.mes,
+        anio: m.anio,
+        fecha: m.fecha
+      };
+    });
+  }
+  function getMovs(){
+    return movsCache;
+  }
+
+  // ---------- categories (caché local sincronizada con Supabase) ----------
+  var catsCache = { Ingreso: [], Gasto: [] };
+
+  async function loadCategorias(){
+    var res = await sb.from("categorias").select("*").order("nombre");
+    if(res.error){
+      console.error(res.error);
+      showToast("Error al cargar categorías");
+      return;
+    }
+    var obj = { Ingreso: [], Gasto: [] };
+    (res.data || []).forEach(function(c){
+      if(!obj[c.tipo]) obj[c.tipo] = [];
+      obj[c.tipo].push(c.nombre);
+    });
+    catsCache = obj;
+  }
+  function getCategorias(){
+    return catsCache;
+  }
+  function categoriesForTipo(tipo){
+    var cats = getCategorias();
+    return cats[tipo] || [];
+  }
+
+  function showToast(msg){
+    var t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(showToast._h);
+    showToast._h = setTimeout(function(){ t.classList.remove("show"); }, 2600);
+  }
+
+  // ---------- populate static selects ----------
+  function fillMonthSelect(sel){
+    sel.innerHTML = "";
+    MESES.forEach(function(m){
+      var o = document.createElement("option");
+      o.value = m; o.textContent = m;
+      sel.appendChild(o);
+    });
+  }
+  function fillMonthFilter(sel){
+    MESES.forEach(function(m){
+      var o = document.createElement("option");
+      o.value = m; o.textContent = m;
+      sel.appendChild(o);
+    });
+  }
+  function fillCategorySelect(sel, tipo, keepValue){
+    var prev = keepValue ? sel.value : null;
+    sel.innerHTML = "";
+    categoriesForTipo(tipo).forEach(function(c){
+      var o = document.createElement("option");
+      o.value = c; o.textContent = c;
+      sel.appendChild(o);
+    });
+    if(prev && categoriesForTipo(tipo).indexOf(prev) !== -1){
+      sel.value = prev;
+    }
+  }
+  function fillCategoryFilter(sel){
+    var prev = sel.value;
+    sel.innerHTML = '<option value="">Todas</option>';
+    var cats = getCategorias();
+    cats.Ingreso.concat(cats.Gasto).forEach(function(c){
+      var o = document.createElement("option");
+      o.value = c; o.textContent = c;
+      sel.appendChild(o);
+    });
+    var all = cats.Ingreso.concat(cats.Gasto);
+    if(prev && all.indexOf(prev) !== -1) sel.value = prev;
+  }
+
+  fillMonthSelect($("movMes"));
+  fillMonthSelect($("editMes"));
+  fillMonthFilter($("filterMes"));
+  $("movAnio").value = new Date().getFullYear();
+  $("movFecha").value = todayISO();
+
+  $("movTipo").addEventListener("change", function(){
+    fillCategorySelect($("movCategoria"), this.value);
+  });
+  $("editTipo").addEventListener("change", function(){
+    fillCategorySelect($("editCategoria"), this.value);
+  });
+
+  // ---------- LOGIN (Supabase Auth) ----------
+  $("loginForm").addEventListener("submit", async function(e){
+    e.preventDefault();
+    var email = $("loginUser").value.trim();
+    var pass = $("loginPass").value;
+    var btn = $("loginSubmitBtn");
+    btn.disabled = true;
+    btn.textContent = "Verificando...";
+    var res = await sb.auth.signInWithPassword({ email: email, password: pass });
+    btn.disabled = false;
+    btn.textContent = "Entrar al libro";
+    if(res.error){
+      $("loginError").textContent = "Correo o clave incorrectos.";
+      $("loginError").style.display = "block";
+    }else{
+      $("loginError").style.display = "none";
+      await openApp();
+    }
+  });
+
+  async function openApp(){
+    await Promise.all([loadCategorias(), loadMovs()]);
+    fillCategorySelect($("movCategoria"), $("movTipo").value || "Gasto");
+    fillCategorySelect($("editCategoria"), $("editTipo").value || "Gasto");
+    fillCategoryFilter($("filterCategoria"));
+    $("loginScreen").style.display = "none";
+    $("appScreen").style.display = "block";
+    renderReportCategoryChecklist(false);
+    renderAll();
+  }
+
+  // auto-login si ya existe una sesión válida de Supabase
+  (async function checkSession(){
+    var res = await sb.auth.getSession();
+    if(res.data && res.data.session){
+      await openApp();
+    }
+  })();
+
+  // ---------- VIEW NAVIGATION ----------
+  function showView(view){
+    var isMov = view === "movimientos";
+    $("viewMovimientos").style.display = isMov ? "block" : "none";
+    $("viewReporte").style.display = isMov ? "none" : "block";
+    $("navMovimientos").classList.toggle("active", isMov);
+    $("navReporte").classList.toggle("active", !isMov);
+    if(!isMov){
+      renderReport();
+    }
+  }
+  $("navMovimientos").addEventListener("click", function(){ showView("movimientos"); });
+  $("navReporte").addEventListener("click", function(){ showView("reporte"); });
+
+  $("logoutBtn").addEventListener("click", async function(){
+    await sb.auth.signOut();
+    movsCache = [];
+    catsCache = { Ingreso: [], Gasto: [] };
+    $("appScreen").style.display = "none";
+    $("loginScreen").style.display = "flex";
+    $("loginUser").value = "";
+    $("loginPass").value = "";
+  });
+
+  // ---------- CHANGE PASSWORD ----------
+  $("openChangePass").addEventListener("click", function(){
+    $("changePassOverlay").classList.add("active");
+    $("changePassMsg").style.display = "none";
+    $("changePassForm").reset();
+  });
+  $("cancelChangePass").addEventListener("click", function(){
+    $("changePassOverlay").classList.remove("active");
+  });
+  $("changePassOverlay").addEventListener("click", function(e){
+    if(e.target === this) this.classList.remove("active");
+  });
+
+  $("changePassForm").addEventListener("submit", async function(e){
+    e.preventDefault();
+    var msg = $("changePassMsg");
+    var oldP = $("oldPass").value;
+    var newP = $("newPass").value;
+    var newP2 = $("newPass2").value;
+
+    if(newP.length < 4){
+      msg.textContent = "La clave nueva debe tener al menos 4 caracteres.";
+      msg.className = "modal-msg err";
+      msg.style.display = "block";
+      return;
+    }
+    if(newP !== newP2){
+      msg.textContent = "Las claves nuevas no coinciden.";
+      msg.className = "modal-msg err";
+      msg.style.display = "block";
+      return;
+    }
+
+    var userRes = await sb.auth.getUser();
+    var email = userRes.data && userRes.data.user && userRes.data.user.email;
+    if(!email){
+      msg.textContent = "No se pudo verificar tu sesión. Vuelve a iniciar sesión.";
+      msg.className = "modal-msg err";
+      msg.style.display = "block";
+      return;
+    }
+
+    var reauth = await sb.auth.signInWithPassword({ email: email, password: oldP });
+    if(reauth.error){
+      msg.textContent = "La clave actual no coincide.";
+      msg.className = "modal-msg err";
+      msg.style.display = "block";
+      return;
+    }
+
+    var updateRes = await sb.auth.updateUser({ password: newP });
+    if(updateRes.error){
+      msg.textContent = "Error al cambiar la clave: " + updateRes.error.message;
+      msg.className = "modal-msg err";
+      msg.style.display = "block";
+      return;
+    }
+
+    msg.textContent = "Clave actualizada correctamente.";
+    msg.className = "modal-msg ok";
+    msg.style.display = "block";
+    setTimeout(function(){
+      $("changePassOverlay").classList.remove("active");
+      showToast("Clave cambiada con éxito");
+    }, 900);
+  });
+
+  // ---------- CATEGORY MANAGEMENT ----------
+  $("openCatManage").addEventListener("click", function(){
+    renderCatManage();
+    $("catManageOverlay").classList.add("active");
+  });
+  $("closeCatManage").addEventListener("click", function(){
+    $("catManageOverlay").classList.remove("active");
+  });
+  $("catManageOverlay").addEventListener("click", function(e){
+    if(e.target === this) this.classList.remove("active");
+  });
+
+  function renderCatManage(){
+    var cats = getCategorias();
+    renderCatList("catListIngreso", "Ingreso", cats.Ingreso);
+    renderCatList("catListGasto", "Gasto", cats.Gasto);
+  }
+
+  function renderCatList(ulId, tipo, arr){
+    var ul = $(ulId);
+    ul.innerHTML = "";
+    arr.forEach(function(c){
+      var li = document.createElement("li");
+      var span = document.createElement("span");
+      span.textContent = c;
+      var btn = document.createElement("button");
+      btn.className = "icon-btn danger";
+      btn.textContent = "✕";
+      btn.title = "Eliminar categoría";
+      btn.setAttribute("data-tipo", tipo);
+      btn.setAttribute("data-cat", c);
+      li.appendChild(span);
+      li.appendChild(btn);
+      ul.appendChild(li);
+    });
+  }
+
+  async function addCategoria(tipo, nombre){
+    nombre = (nombre || "").trim();
+    if(!nombre) return;
+    var cats = getCategorias();
+    var exists = cats[tipo].some(function(c){ return c.toLowerCase() === nombre.toLowerCase(); });
+    if(exists){
+      showToast("Esa categoría ya existe");
+      return;
+    }
+    var res = await sb.from("categorias").insert({ tipo: tipo, nombre: nombre });
+    if(res.error){
+      console.error(res.error);
+      showToast("Error al agregar la categoría");
+      return;
+    }
+    await loadCategorias();
+    renderCatManage();
+    refreshCategoryUI();
+    showToast("Categoría agregada");
+  }
+
+  async function removeCategoria(tipo, nombre){
+    var cats = getCategorias();
+    if(cats[tipo].length <= 1){
+      showToast("Debe quedar al menos una categoría de " + (tipo === "Ingreso" ? "ingreso" : "gasto"));
+      return;
+    }
+    var enUso = getMovs().some(function(m){ return m.tipo === tipo && m.categoria === nombre; });
+    if(enUso && !confirm('La categoría "' + nombre + '" está en uso en movimientos existentes. ¿Eliminarla igualmente? (los movimientos ya registrados conservarán el nombre de todas formas)')){
+      return;
+    }
+    var res = await sb.from("categorias").delete().eq("tipo", tipo).eq("nombre", nombre);
+    if(res.error){
+      console.error(res.error);
+      showToast("Error al eliminar la categoría");
+      return;
+    }
+    await loadCategorias();
+    renderCatManage();
+    refreshCategoryUI();
+    showToast("Categoría eliminada");
+  }
+
+  $("catAddIngresoBtn").addEventListener("click", function(){
+    addCategoria("Ingreso", $("catAddIngreso").value);
+    $("catAddIngreso").value = "";
+    $("catAddIngreso").focus();
+  });
+  $("catAddGastoBtn").addEventListener("click", function(){
+    addCategoria("Gasto", $("catAddGasto").value);
+    $("catAddGasto").value = "";
+    $("catAddGasto").focus();
+  });
+  $("catAddIngreso").addEventListener("keydown", function(e){
+    if(e.key === "Enter"){ e.preventDefault(); $("catAddIngresoBtn").click(); }
+  });
+  $("catAddGasto").addEventListener("keydown", function(e){
+    if(e.key === "Enter"){ e.preventDefault(); $("catAddGastoBtn").click(); }
+  });
+
+  $("catListIngreso").addEventListener("click", function(e){
+    var btn = e.target.closest("button");
+    if(!btn) return;
+    removeCategoria(btn.getAttribute("data-tipo"), btn.getAttribute("data-cat"));
+  });
+  $("catListGasto").addEventListener("click", function(e){
+    var btn = e.target.closest("button");
+    if(!btn) return;
+    removeCategoria(btn.getAttribute("data-tipo"), btn.getAttribute("data-cat"));
+  });
+
+  function refreshCategoryUI(){
+    fillCategorySelect($("movCategoria"), $("movTipo").value, true);
+    fillCategorySelect($("editCategoria"), $("editTipo").value, true);
+    fillCategoryFilter($("filterCategoria"));
+    renderReportCategoryChecklist(true);
+    renderAll();
+  }
+
+  // ---------- MOVEMENTS: CREATE ----------
+  $("movForm").addEventListener("submit", async function(e){
+    e.preventDefault();
+    var mov = {
+      tipo: $("movTipo").value,
+      descripcion: $("movDesc").value.trim(),
+      monto: Number($("movMonto").value) || 0,
+      categoria: $("movCategoria").value,
+      estado: $("movEstado").value,
+      mes: $("movMes").value,
+      anio: Number($("movAnio").value),
+      fecha: $("movFecha").value
+    };
+    if(!mov.descripcion || mov.monto <= 0){
+      showToast("Revisa la descripción y el monto");
+      return;
+    }
+    var res = await sb.from("movimientos").insert(mov);
+    if(res.error){
+      console.error(res.error);
+      showToast("Error al guardar el movimiento");
+      return;
+    }
+    await loadMovs();
+    var tipoActual = $("movTipo").value;
+    $("movForm").reset();
+    $("movTipo").value = tipoActual;
+    fillCategorySelect($("movCategoria"), tipoActual);
+    $("movAnio").value = new Date().getFullYear();
+    $("movFecha").value = todayISO();
+    showToast("Movimiento agregado");
+    renderAll();
+  });
+
+  // ---------- FILTERS (tabla) ----------
+  ["filterMes","filterCategoria","filterEstado","filterTipo"].forEach(function(id){
+    $(id).addEventListener("change", renderAll);
+  });
+  $("clearFilters").addEventListener("click", function(){
+    $("filterMes").value = "";
+    $("filterCategoria").value = "";
+    $("filterEstado").value = "";
+    $("filterTipo").value = "";
+    renderAll();
+  });
+
+  function getFiltered(){
+    var mes = $("filterMes").value;
+    var cat = $("filterCategoria").value;
+    var estado = $("filterEstado").value;
+    var tipo = $("filterTipo").value;
+    return getMovs().filter(function(m){
+      if(mes && m.mes !== mes) return false;
+      if(cat && m.categoria !== cat) return false;
+      if(estado && m.estado !== estado) return false;
+      if(tipo && m.tipo !== tipo) return false;
+      return true;
+    });
+  }
+
+  // ---------- RENDER (tabla + resumen) ----------
+  function renderAll(){
+    var filtered = getFiltered().slice().sort(function(a,b){
+      return new Date(b.fecha) - new Date(a.fecha);
+    });
+
+    var ingresos = 0, gastos = 0;
+    filtered.forEach(function(m){
+      if(m.tipo === "Ingreso") ingresos += m.monto; else gastos += m.monto;
+    });
+    $("totalIngresos").textContent = fmt(ingresos);
+    $("totalGastos").textContent = fmt(gastos);
+    $("totalBalance").textContent = fmt(ingresos - gastos);
+
+    $("countLabel").textContent = filtered.length + (filtered.length === 1 ? " registro" : " registros");
+
+    var tbody = $("movTableBody");
+    tbody.innerHTML = "";
+
+    if(filtered.length === 0){
+      $("emptyState").style.display = "block";
+    }else{
+      $("emptyState").style.display = "none";
+      filtered.forEach(function(m){
+        var tr = document.createElement("tr");
+
+        var estadoClass = m.estado.toLowerCase();
+        var montoClass = m.tipo === "Ingreso" ? "ingreso" : "gasto";
+        var sign = m.tipo === "Ingreso" ? "+" : "−";
+
+        tr.innerHTML =
+          '<td>' + formatFecha(m.fecha) + '</td>' +
+          '<td>' + escapeHtml(m.descripcion) + '</td>' +
+          '<td><span class="cat-pill">' + escapeHtml(m.categoria) + '</span></td>' +
+          '<td>' + m.mes + ' ' + m.anio + '</td>' +
+          '<td><span class="stamp ' + estadoClass + '">' + m.estado + '</span></td>' +
+          '<td class="monto-cell ' + montoClass + '">' + sign + ' ' + fmt(m.monto) + '</td>' +
+          '<td><div class="row-actions">' +
+            '<button class="icon-btn" data-action="edit" data-id="' + m.id + '" title="Editar">✎</button>' +
+            '<button class="icon-btn danger" data-action="del" data-id="' + m.id + '" title="Eliminar">✕</button>' +
+          '</div></td>';
+        tbody.appendChild(tr);
+      });
+    }
+
+    renderReport();
+  }
+
+  function formatFecha(iso){
+    if(!iso) return "";
+    var parts = iso.split("-");
+    if(parts.length !== 3) return iso;
+    return parts[2] + "/" + parts[1] + "/" + parts[0];
+  }
+
+  // ---------- TABLE ACTIONS (edit / delete) ----------
+  $("movTableBody").addEventListener("click", async function(e){
+    var btn = e.target.closest("button");
+    if(!btn) return;
+    var id = btn.getAttribute("data-id");
+    var action = btn.getAttribute("data-action");
+
+    if(action === "del"){
+      if(confirm("¿Eliminar este movimiento?")){
+        var res = await sb.from("movimientos").delete().eq("id", id);
+        if(res.error){
+          console.error(res.error);
+          showToast("Error al eliminar el movimiento");
+          return;
+        }
+        await loadMovs();
+        showToast("Movimiento eliminado");
+        renderAll();
+      }
+    }else if(action === "edit"){
+      openEdit(id);
+    }
+  });
+
+  function openEdit(id){
+    var m = getMovs().find(function(x){ return x.id === id; });
+    if(!m) return;
+    $("editId").value = m.id;
+    $("editTipo").value = m.tipo;
+    fillCategorySelect($("editCategoria"), m.tipo);
+    $("editCategoria").value = m.categoria;
+    $("editDesc").value = m.descripcion;
+    $("editMonto").value = m.monto;
+    $("editEstado").value = m.estado;
+    $("editMes").value = m.mes;
+    $("editAnio").value = m.anio;
+    $("editFecha").value = m.fecha;
+    $("editOverlay").classList.add("active");
+  }
+
+  $("cancelEdit").addEventListener("click", function(){
+    $("editOverlay").classList.remove("active");
+  });
+  $("editOverlay").addEventListener("click", function(e){
+    if(e.target === this) this.classList.remove("active");
+  });
+
+  $("editForm").addEventListener("submit", async function(e){
+    e.preventDefault();
+    var id = $("editId").value;
+
+    var updated = {
+      tipo: $("editTipo").value,
+      descripcion: $("editDesc").value.trim(),
+      monto: Number($("editMonto").value) || 0,
+      categoria: $("editCategoria").value,
+      estado: $("editEstado").value,
+      mes: $("editMes").value,
+      anio: Number($("editAnio").value),
+      fecha: $("editFecha").value
+    };
+    var res = await sb.from("movimientos").update(updated).eq("id", id);
+    if(res.error){
+      console.error(res.error);
+      showToast("Error al guardar los cambios");
+      return;
+    }
+    await loadMovs();
+    $("editOverlay").classList.remove("active");
+    showToast("Cambios guardados");
+    renderAll();
+  });
+
+  // ---------- REPORTE ----------
+  function getCheckedCategories(){
+    var boxes = document.querySelectorAll('#reportCatChecklist input[type=checkbox]:checked');
+    return Array.prototype.map.call(boxes, function(b){ return b.value; });
+  }
+
+  function renderReportCategoryChecklist(preserveChecked){
+    var prevChecked = preserveChecked ? getCheckedCategories() : [];
+    var cats = getCategorias();
+    var container = $("reportCatChecklist");
+    container.innerHTML = "";
+
+    function buildGroup(title, arr){
+      if(!arr || arr.length === 0) return;
+      var group = document.createElement("div");
+      group.className = "ms-group";
+      var heading = document.createElement("div");
+      heading.className = "ms-group-title";
+      heading.textContent = title;
+      group.appendChild(heading);
+      arr.forEach(function(c){
+        var label = document.createElement("label");
+        var checked = prevChecked.indexOf(c) !== -1;
+        label.innerHTML = '<input type="checkbox" value="' + escapeHtml(c) + '"' + (checked ? " checked" : "") + '> ' + escapeHtml(c);
+        group.appendChild(label);
+      });
+      container.appendChild(group);
+    }
+
+    buildGroup("Ingresos", cats.Ingreso);
+    buildGroup("Gastos", cats.Gasto);
+    updateCatMsLabel();
+  }
+
+  function updateCatMsLabel(){
+    var selected = getCheckedCategories();
+    var lbl = $("catMsBtnLabel");
+    if(selected.length === 0){
+      lbl.textContent = "Todas las categorías";
+    }else if(selected.length === 1){
+      lbl.textContent = selected[0];
+    }else{
+      lbl.textContent = selected.length + " categorías seleccionadas";
+    }
+  }
+
+  $("reportCatChecklist").addEventListener("change", function(){
+    updateCatMsLabel();
+    renderReport();
+  });
+  $("reportDesde").addEventListener("change", renderReport);
+  $("reportHasta").addEventListener("change", renderReport);
+  $("reportTipo").addEventListener("change", renderReport);
+
+  $("reportSelectAll").addEventListener("click", function(){
+    document.querySelectorAll('#reportCatChecklist input[type=checkbox]').forEach(function(b){ b.checked = true; });
+    updateCatMsLabel();
+    renderReport();
+  });
+  $("reportSelectNone").addEventListener("click", function(){
+    document.querySelectorAll('#reportCatChecklist input[type=checkbox]').forEach(function(b){ b.checked = false; });
+    updateCatMsLabel();
+    renderReport();
+  });
+
+  // dropdown open/close
+  $("catMsBtn").addEventListener("click", function(e){
+    e.stopPropagation();
+    var open = $("catMsPanel").classList.toggle("open");
+    $("catMsBtn").classList.toggle("open", open);
+  });
+  document.addEventListener("click", function(e){
+    var wrap = $("catMsDropdown");
+    if(wrap && !wrap.contains(e.target)){
+      $("catMsPanel").classList.remove("open");
+      $("catMsBtn").classList.remove("open");
+    }
+  });
+
+  function computeReportMovs(){
+    var desde = $("reportDesde").value;
+    var hasta = $("reportHasta").value;
+    var tipo = $("reportTipo").value;
+    var selectedCats = getCheckedCategories();
+    return getMovs().filter(function(m){
+      if(desde && m.fecha < desde) return false;
+      if(hasta && m.fecha > hasta) return false;
+      if(tipo && m.tipo !== tipo) return false;
+      if(selectedCats.length && selectedCats.indexOf(m.categoria) === -1) return false;
+      return true;
+    });
+  }
+
+  function renderBarList(containerId, dataObj, cls){
+    var container = $(containerId);
+    var entries = Object.keys(dataObj).map(function(k){ return { cat: k, total: dataObj[k] }; });
+    entries.sort(function(a, b){ return b.total - a.total; });
+    container.innerHTML = "";
+    if(entries.length === 0){
+      container.innerHTML = '<p class="empty-state" style="padding:16px 0;">Sin datos para este filtro.</p>';
+      return;
+    }
+    var max = entries[0].total;
+    entries.forEach(function(e){
+      var pct = max ? Math.round((e.total / max) * 100) : 0;
+      var row = document.createElement("div");
+      row.className = "bar-row";
+      row.innerHTML =
+        '<div class="bar-label">' + escapeHtml(e.cat) + '</div>' +
+        '<div class="bar-track"><div class="bar-fill ' + cls + '" style="width:' + pct + '%;"></div></div>' +
+        '<div class="bar-value">' + fmt(e.total) + '</div>';
+      container.appendChild(row);
+    });
+  }
+
+  function renderReport(){
+    if(!$("reportCatChecklist")) return;
+    var movs = computeReportMovs();
+    var ingresos = 0, gastos = 0;
+    var byCatIngreso = {}, byCatGasto = {};
+
+    movs.forEach(function(m){
+      if(m.tipo === "Ingreso"){
+        ingresos += m.monto;
+        byCatIngreso[m.categoria] = (byCatIngreso[m.categoria] || 0) + m.monto;
+      }else{
+        gastos += m.monto;
+        byCatGasto[m.categoria] = (byCatGasto[m.categoria] || 0) + m.monto;
+      }
+    });
+
+    $("reportTotalIngresos").textContent = fmt(ingresos);
+    $("reportTotalGastos").textContent = fmt(gastos);
+    $("reportTotalBalance").textContent = fmt(ingresos - gastos);
+    $("reportCount").textContent = movs.length + (movs.length === 1 ? " registro" : " registros");
+
+    renderBarList("reportIngresoBars", byCatIngreso, "ingreso");
+    renderBarList("reportGastoBars", byCatGasto, "gasto");
+  }
+
+})();
+</script>
+</body>
+</html>
